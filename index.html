@@ -1,0 +1,601 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNSZR Nakit Kasa Defteri</title>
+<style>
+:root {
+  --bg:#f3f5f8; --panel:#fff; --text:#202938; --muted:#697586;
+  --border:#dfe5ec; --blue:#2457c5; --green:#168354; --red:#c0392b;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:Arial,Helvetica,sans-serif; font-size:15px;
+}
+header { background:#18283f; color:white; padding:24px 18px; }
+.header-inner, main { max-width:1100px; margin:auto; }
+header h1 { margin:0 0 7px; font-size:25px; }
+header p { margin:0; color:#d3ddec; }
+main { padding:22px 16px 40px; }
+h2 { font-size:18px; margin:0 0 16px; }
+.panel {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:12px; padding:20px; margin-bottom:18px;
+}
+.cards {
+  display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px; margin-bottom:18px;
+}
+.card {
+  background:white; border:1px solid var(--border);
+  border-radius:12px; padding:17px;
+}
+.card small { display:block; color:var(--muted); margin-bottom:9px; }
+.card strong { font-size:23px; overflow-wrap:anywhere; }
+.green { color:var(--green); }
+.red { color:var(--red); }
+label { display:block; font-weight:bold; font-size:13px; margin-bottom:7px; }
+input, select, textarea {
+  width:100%; padding:11px; border:1px solid #cbd3df;
+  border-radius:7px; font:inherit; background:white; color:var(--text);
+}
+textarea { min-height:75px; resize:vertical; }
+.field { margin-bottom:14px; }
+.form-grid {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px;
+}
+button {
+  border:0; border-radius:7px; padding:11px 15px;
+  font-weight:bold; font-size:14px; cursor:pointer;
+}
+.primary { background:var(--blue); color:white; }
+.secondary { background:#e9eef5; color:#26364b; }
+.danger { background:#fff0ef; color:var(--red); }
+button:focus, input:focus, select:focus, textarea:focus {
+  outline:2px solid #8bb4ff; outline-offset:1px;
+}
+.note { font-size:13px; color:var(--muted); line-height:1.5; }
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; min-width:650px; }
+th, td { padding:12px 10px; border-bottom:1px solid var(--border); text-align:left; }
+th { background:#f7f9fc; font-size:12px; color:var(--muted); }
+td { font-size:14px; }
+.num { text-align:right; white-space:nowrap; }
+.empty { color:var(--muted); text-align:center; padding:25px; }
+.small-btn { padding:7px 9px; font-size:12px; }
+.status { padding:12px; border-radius:8px; margin-bottom:14px; background:#edf4ff; }
+@media(max-width:650px) {
+  .cards { grid-template-columns:1fr; }
+  .form-grid { grid-template-columns:1fr; }
+  .panel { padding:15px; }
+  header h1 { font-size:21px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <h1>CNSZR Nakit Kasa Defteri</h1>
+    <p>Fiziksel nakit hareketleri ve gün sonu kasa kontrolü</p>
+  </div>
+</header>
+
+<main>
+  <div id="notice" class="status">Kasa kayıtlarınız bu tarayıcıda saklanır.</div>
+
+  <section class="panel">
+    <h2>1. Açılış bakiyesi</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="openingDate">Açılış tarihi</label>
+        <input id="openingDate" type="date">
+      </div>
+      <div class="field">
+        <label for="openingAmount">Açılış kasa tutarı (TL)</label>
+        <input id="openingAmount" type="number" min="0" step="0.01" placeholder="Örn. 5000">
+      </div>
+    </div>
+    <button class="primary" id="saveOpening">Açılış bakiyesini kaydet</button>
+    <p class="note">Açılış tutarı, başlangıçta kasada bulunan fiziksel paradır. Düzeltme gerektiğinde bu bölümden güncelleyebilirsin.</p>
+  </section>
+
+  <section class="cards">
+    <div class="card">
+      <small>Açılış bakiyesi</small>
+      <strong id="openingSummary">₺0,00</strong>
+    </div>
+    <div class="card">
+      <small>Toplam nakit girişi</small>
+      <strong class="green" id="incomeSummary">₺0,00</strong>
+    </div>
+    <div class="card">
+      <small>Toplam nakit çıkışı</small>
+      <strong class="red" id="expenseSummary">₺0,00</strong>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>2. Güncel kasa durumu</h2>
+    <div class="cards" style="margin-bottom:0">
+      <div class="card">
+        <small>Beklenen kasa bakiyesi</small>
+        <strong id="balanceSummary">₺0,00</strong>
+      </div>
+      <div class="card">
+        <small>Son sayım farkı</small>
+        <strong id="differenceSummary">Henüz sayım yok</strong>
+      </div>
+      <div class="card">
+        <small>Toplam işlem sayısı</small>
+        <strong id="countSummary">0</strong>
+      </div>
+    </div>
+    <p class="note">Beklenen bakiye = açılış bakiyesi + nakit girişleri − nakit çıkışları.</p>
+  </section>
+
+  <section class="panel">
+    <h2>3. Nakit hareketi ekle</h2>
+    <form id="entryForm">
+      <div class="form-grid">
+        <div class="field">
+          <label for="entryDate">İşlem tarihi</label>
+          <input id="entryDate" type="date" required>
+        </div>
+        <div class="field">
+          <label for="entryType">İşlem türü</label>
+          <select id="entryType" required>
+            <option value="income">Nakit girişi</option>
+            <option value="expense">Nakit çıkışı</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="entryAmount">Tutar (TL)</label>
+          <input id="entryAmount" type="number" min="0.01" step="0.01" placeholder="Örn. 1250" required>
+        </div>
+        <div class="field">
+          <label for="entryCategory">İşlem kategorisi</label>
+          <select id="entryCategory">
+            <option>Konaklama tahsilatı</option>
+            <option>Restoran tahsilatı</option>
+            <option>Diğer tahsilat</option>
+            <option>Bankadan nakit çekimi</option>
+            <option>Bankaya nakit yatırma</option>
+            <option>Malzeme alımı</option>
+            <option>Personel ödemesi</option>
+            <option>Avans</option>
+            <option>Diğer</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="entryDocument">Belge / fiş numarası (isteğe bağlı)</label>
+          <input id="entryDocument" type="text" placeholder="Örn. K-001">
+        </div>
+        <div class="field">
+          <label for="entryDescription">Açıklama</label>
+          <input id="entryDescription" type="text" placeholder="İşlem açıklaması" required>
+        </div>
+      </div>
+      <button class="primary" type="submit">Nakit hareketini kaydet</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>4. Gün sonu kasa sayımı</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="countDate">Sayım tarihi</label>
+        <input id="countDate" type="date">
+      </div>
+      <div class="field">
+        <label for="actualAmount">Fiilen sayılan nakit (TL)</label>
+        <input id="actualAmount" type="number" min="0" step="0.01" placeholder="Kasada saydığın tutar">
+      </div>
+    </div>
+    <div class="field">
+      <label for="countNote">Sayım açıklaması (isteğe bağlı)</label>
+      <input id="countNote" type="text" placeholder="Örn. Akşam vardiyası sayımı">
+    </div>
+    <button class="primary" id="saveCount">Sayımı kaydet</button>
+    <p class="note">Seçilen tarihe kadar kaydedilmiş işlemler hesaplanır. Sayım farkı, fiilî para ile beklenen bakiye arasındaki farktır.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tarih</th><th class="num">Beklenen</th><th class="num">Sayılan</th><th class="num">Fark</th><th>Açıklama</th><th></th></tr></thead>
+        <tbody id="countRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>5. Nakit hareketleri geçmişi</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label for="filterDate">Tarihe göre filtrele</label>
+        <input id="filterDate" type="date">
+      </div>
+      <div class="field">
+        <label for="filterType">İşlem türüne göre filtrele</label>
+        <select id="filterType">
+          <option value="all">Tüm işlemler</option>
+          <option value="income">Nakit girişleri</option>
+          <option value="expense">Nakit çıkışları</option>
+        </select>
+      </div>
+    </div>
+    <button class="secondary" id="clearFilters" type="button">Filtreleri temizle</button>
+    <div class="table-wrap" style="margin-top:15px">
+      <table>
+        <thead>
+          <tr>
+            <th>Tarih</th><th>Tür</th><th>Kategori / açıklama</th>
+            <th>Belge no.</th><th class="num">Tutar</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="entryRows"></tbody>
+      </table>
+    </div>
+    <p class="note">Silinen işlemler kasa hesabını değiştirir. Yanlış kayıtları silerken dikkatli ol.</p>
+  </section>
+
+  <section class="panel">
+    <h2>6. Veri güvenliği</h2>
+    <p class="note">Kayıtlar bu tarayıcının yerel hafızasında tutulur. Tarayıcı verilerini temizlemek kayıtları silebilir. Düzenli olarak yedek al.</p>
+    <button class="secondary" id="exportData">Kasa kayıtlarını yedekle (JSON)</button>
+    <button class="danger" id="deleteAll" type="button">Tüm kayıtları sil</button>
+    <input id="importFile" type="file" accept=".json,application/json" style="display:none">
+    <button class="secondary" id="importData" type="button">Yedekten geri yükle</button>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "cnszr_nakit_kasa_v1";
+  const $ = id => document.getElementById(id);
+
+  function localDate() {
+    const d = new Date();
+    return d.getFullYear() + "-" +
+      String(d.getMonth() + 1).padStart(2, "0") + "-" +
+      String(d.getDate()).padStart(2, "0");
+  }
+
+  function newId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  function money(value) {
+    return new Intl.NumberFormat("tr-TR", {
+      style: "currency", currency: "TRY"
+    }).format(Number(value) || 0);
+  }
+
+  function amount(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+  }
+
+  function freshData() {
+    return {
+      opening: { date: localDate(), amount: 0, saved: false },
+      entries: [],
+      counts: []
+    };
+  }
+
+  let data = freshData();
+
+  function showNotice(message) {
+    $("notice").textContent = message;
+  }
+
+  function loadData() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.opening ||
+          !Array.isArray(parsed.entries) || !Array.isArray(parsed.counts)) {
+        throw new Error("Kayıt biçimi geçersiz.");
+      }
+      data = parsed;
+    } catch (error) {
+      showNotice("Kayıtlar okunamadı. Verileri silmeden önce yedek dosyanı kontrol et.");
+    }
+  }
+
+  function saveData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      return true;
+    } catch (error) {
+      showNotice("Tarayıcıya kaydedilemedi. Depolama alanını kontrol et.");
+      return false;
+    }
+  }
+
+  function sortedEntries() {
+    return [...data.entries].sort((a, b) =>
+      a.date.localeCompare(b.date) || a.createdAt - b.createdAt
+    );
+  }
+
+  function totalsUntil(date) {
+    let income = 0;
+    let expense = 0;
+    data.entries.forEach(entry => {
+      if (entry.date <= date) {
+        if (entry.type === "income") income += amount(entry.amount);
+        else expense += amount(entry.amount);
+      }
+    });
+    return {
+      income: amount(income),
+      expense: amount(expense),
+      balance: amount(Number(data.opening.amount) + income - expense)
+    };
+  }
+
+  function renderSummary() {
+    const all = totalsUntil("9999-12-31");
+    $("openingSummary").textContent = money(data.opening.amount);
+    $("incomeSummary").textContent = money(all.income);
+    $("expenseSummary").textContent = money(all.expense);
+    $("balanceSummary").textContent = money(all.balance);
+    $("countSummary").textContent = String(data.entries.length);
+
+    const latest = [...data.counts].sort((a, b) => b.date.localeCompare(a.date))[0];
+    const difference = $("differenceSummary");
+    if (!latest) {
+      difference.textContent = "Henüz sayım yok";
+      difference.className = "";
+    } else {
+      difference.textContent = money(latest.difference);
+      difference.className = latest.difference < 0 ? "red" :
+        latest.difference > 0 ? "green" : "";
+    }
+  }
+
+  function renderEntries() {
+    const tbody = $("entryRows");
+    tbody.replaceChildren();
+
+    const dateFilter = $("filterDate").value;
+    const typeFilter = $("filterType").value;
+    const entries = sortedEntries().reverse().filter(entry =>
+      (!dateFilter || entry.date === dateFilter) &&
+      (typeFilter === "all" || entry.type === typeFilter)
+    );
+
+    if (!entries.length) {
+      const row = tbody.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 6;
+      cell.className = "empty";
+      cell.textContent = "Henüz kayıt bulunmuyor.";
+      return;
+    }
+
+    entries.forEach(entry => {
+      const row = tbody.insertRow();
+      row.insertCell().textContent = entry.date;
+      const typeCell = row.insertCell();
+      typeCell.textContent = entry.type === "income" ? "Nakit girişi" : "Nakit çıkışı";
+      typeCell.className = entry.type === "income" ? "green" : "red";
+
+      row.insertCell().textContent =
+        (entry.category || "Diğer") + " — " + entry.description;
+      row.insertCell().textContent = entry.document || "—";
+
+      const valueCell = row.insertCell();
+      valueCell.className = "num " + (entry.type === "income" ? "green" : "red");
+      valueCell.textContent = (entry.type === "income" ? "+" : "−") + money(entry.amount);
+
+      const actionCell = row.insertCell();
+      const button = document.createElement("button");
+      button.className = "danger small-btn";
+      button.textContent = "Sil";
+      button.addEventListener("click", () => {
+        if (!confirm("Bu nakit hareketini silmek istediğine emin misin?")) return;
+        data.entries = data.entries.filter(item => item.id !== entry.id);
+        saveData();
+        renderAll();
+        showNotice("Nakit hareketi silindi.");
+      });
+      actionCell.appendChild(button);
+    });
+  }
+
+  function renderCounts() {
+    const tbody = $("countRows");
+    tbody.replaceChildren();
+    const counts = [...data.counts].sort((a, b) => b.date.localeCompare(a.date));
+
+    if (!counts.length) {
+      const row = tbody.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 6;
+      cell.className = "empty";
+      cell.textContent = "Henüz gün sonu sayımı yok.";
+      return;
+    }
+
+    counts.forEach(count => {
+      const row = tbody.insertRow();
+      row.insertCell().textContent = count.date;
+      row.insertCell().className = "num";
+      row.cells[1].textContent = money(count.expected);
+      row.insertCell().className = "num";
+      row.cells[2].textContent = money(count.actual);
+      const diffCell = row.insertCell();
+      diffCell.className = "num " +
+        (count.difference < 0 ? "red" : count.difference > 0 ? "green" : "");
+      diffCell.textContent = money(count.difference);
+      row.insertCell().textContent = count.note || "—";
+
+      const actionCell = row.insertCell();
+      const button = document.createElement("button");
+      button.className = "danger small-btn";
+      button.textContent = "Sil";
+      button.addEventListener("click", () => {
+        if (!confirm("Bu sayım kaydını silmek istiyor musun?")) return;
+        data.counts = data.counts.filter(item => item.id !== count.id);
+        saveData();
+        renderAll();
+        showNotice("Sayım kaydı silindi.");
+      });
+      actionCell.appendChild(button);
+    });
+  }
+
+  function renderAll() {
+    $("openingDate").value = data.opening.date || localDate();
+    $("openingAmount").value = Number(data.opening.amount) || 0;
+    renderSummary();
+    renderEntries();
+    renderCounts();
+  }
+
+  $("saveOpening").addEventListener("click", () => {
+    const date = $("openingDate").value;
+    const value = $("openingAmount").value;
+    if (!date || value.trim() === "" || !Number.isFinite(Number(value)) || Number(value) < 0) {
+      alert("Geçerli bir açılış tarihi ve sıfır veya daha büyük bir tutar gir.");
+      return;
+    }
+    if (data.entries.some(entry => entry.date < date)) {
+      if (!confirm("Açılış tarihinden önce işlem kayıtları var. Bu tarih, geçmiş kasa hesaplarını etkileyebilir. Devam edilsin mi?")) return;
+    }
+    data.opening = { date, amount: amount(value), saved: true };
+    saveData();
+    renderAll();
+    showNotice("Açılış bakiyesi kaydedildi.");
+  });
+
+  $("entryForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const date = $("entryDate").value;
+    const type = $("entryType").value;
+    const value = $("entryAmount").value;
+    const description = $("entryDescription").value.trim();
+
+    if (!date || !description || value.trim() === "" ||
+        !Number.isFinite(Number(value)) || Number(value) <= 0) {
+      alert("Tarih, açıklama ve sıfırdan büyük geçerli bir tutar gir.");
+      return;
+    }
+    if (date < data.opening.date) {
+      if (!confirm("İşlem tarihi açılış tarihinden önce. Yine de kaydedilsin mi?")) return;
+    }
+
+    data.entries.push({
+      id: newId(), date, type, amount: amount(value),
+      category: $("entryCategory").value,
+      document: $("entryDocument").value.trim(),
+      description, createdAt: Date.now()
+    });
+
+    if (!saveData()) return;
+    $("entryAmount").value = "";
+    $("entryDocument").value = "";
+    $("entryDescription").value = "";
+    renderAll();
+    showNotice("Nakit hareketi kaydedildi.");
+  });
+
+  $("saveCount").addEventListener("click", () => {
+    const date = $("countDate").value;
+    const value = $("actualAmount").value;
+    if (!date || value.trim() === "" ||
+        !Number.isFinite(Number(value)) || Number(value) < 0) {
+      alert("Sayım tarihi ve sıfır veya daha büyük geçerli bir tutar gir.");
+      return;
+    }
+    const expected = totalsUntil(date).balance;
+    const actual = amount(value);
+    const difference = amount(actual - expected);
+    const existing = data.counts.find(item => item.date === date);
+
+    if (existing && !confirm("Bu tarih için sayım var. Üzerine yazılsın mı?")) return;
+
+    const count = {
+      id: existing ? existing.id : newId(),
+      date, expected, actual, difference,
+      note: $("countNote").value.trim()
+    };
+
+    data.counts = data.counts.filter(item => item.date !== date);
+    data.counts.push(count);
+
+    if (!saveData()) return;
+    $("actualAmount").value = "";
+    $("countNote").value = "";
+    renderAll();
+    showNotice("Sayım kaydedildi. Kasa farkı: " + money(difference));
+  });
+
+  $("filterDate").addEventListener("change", renderEntries);
+  $("filterType").addEventListener("change", renderEntries);
+
+  $("clearFilters").addEventListener("click", () => {
+    $("filterDate").value = "";
+    $("filterType").value = "all";
+    renderEntries();
+  });
+
+  $("exportData").addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "cnszr-kasa-yedek-" + localDate() + ".json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showNotice("Yedek dosyası oluşturuldu.");
+  });
+
+  $("importData").addEventListener("click", () => $("importFile").click());
+
+  $("importFile").addEventListener("change", async event => {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+      const imported = JSON.parse(await file.text());
+      if (!imported || !imported.opening ||
+          !Array.isArray(imported.entries) || !Array.isArray(imported.counts)) {
+        throw new Error("Dosya biçimi uygun değil.");
+      }
+      if (!confirm("Mevcut kasa kayıtları yedek dosyasındaki kayıtlarla değiştirilecek. Devam edilsin mi?")) return;
+      data = imported;
+      if (!saveData()) return;
+      renderAll();
+      showNotice("Yedek başarıyla geri yüklendi.");
+    } catch (error) {
+      alert("Yedek dosyası okunamadı veya biçimi geçersiz.");
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  $("deleteAll").addEventListener("click", () => {
+    if (!confirm("DİKKAT: Bu uygulamadaki tüm kasa hareketleri, açılış bakiyesi ve sayımlar silinecek. Önce yedek aldın mı?")) return;
+    if (!confirm("Son kez soruyorum: Tüm kayıtlar kalıcı olarak silinsin mi?")) return;
+    data = freshData();
+    saveData();
+    renderAll();
+    showNotice("Kasa verileri silindi.");
+  });
+
+  loadData();
+  $("entryDate").value = localDate();
+  $("countDate").value = localDate();
+  renderAll();
+})();
+</script>
+</body>
+</html>
